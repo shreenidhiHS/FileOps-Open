@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Upload, Download, FileText, AlertCircle, Loader2, Minus, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { Label } from "../ui/label";
 
 interface CompressResult {
   success: boolean;
