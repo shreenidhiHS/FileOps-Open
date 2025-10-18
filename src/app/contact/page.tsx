@@ -49,7 +49,7 @@ export default function ContactPage() {
             className="text-lg max-w-2xl mx-auto"
             style={{ color: 'var(--muted-foreground)' }}
           >
-            Get in touch with our development team. We're here to help and would love to hear from you!
+            Get in touch with our development team. We&apos;re here to help and would love to hear from you!
           </p>
         </div>
 
