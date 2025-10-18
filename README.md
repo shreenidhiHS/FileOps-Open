@@ -1,36 +1,189 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FileForge - Open Source File Processing Tools
 
-## Getting Started
+A comprehensive suite of free, open-source file processing tools built with Next.js. Convert, compress, merge, split, and transform files across multiple formats including PDF, images, audio, video, and more.
 
-First, run the development server:
+## 🚀 Features
 
+### PDF Tools
+- **PDF to Base64** - Convert PDF files to Base64 encoded strings
+- **PDF from Base64** - Convert Base64 strings back to PDF files
+- **PDF Merger** - Combine multiple PDF files into one document
+- **PDF Splitter** - Split PDF documents by page ranges
+- **PDF Compressor** - Reduce PDF file size with quality control
+
+### Image Tools (Coming Soon)
+- Image format conversion (JPG, PNG, WebP, GIF, BMP)
+- Image resizing and scaling
+- Image compression and optimization
+- Background removal
+- Batch processing
+
+### Audio Tools (Coming Soon)
+- Audio format conversion (MP3, WAV, FLAC, AAC, OGG)
+- Audio trimming and editing
+- Audio compression
+- Audio merging and splitting
+- Noise reduction
+
+### Video Tools (Coming Soon)
+- Video format conversion (MP4, AVI, MOV, WMV, WebM)
+- Video compression and optimization
+- Video trimming and editing
+- Video merging and splitting
+- Video stabilization
+
+## 🛠️ Tech Stack
+
+- **Framework**: Next.js 14 with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **UI Components**: shadcn/ui
+- **Icons**: Lucide React
+- **Notifications**: Sonner
+- **File Processing**: Server-side APIs
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+ 
+- npm or yarn
+
+### Installation
+
+1. Clone the repository
+```bash
+git clone https://github.com/shreenidhiHS/FileOps-Open.git
+cd fileforge
+```
+
+2. Install dependencies
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Run the development server
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── (pages)/           # Page routes
+│   │   ├── pdf/           # PDF tools pages
+│   │   ├── image/         # Image tools pages (coming soon)
+│   │   ├── audio/         # Audio tools pages (coming soon)
+│   │   └── video/         # Video tools pages (coming soon)
+│   ├── api/               # API routes
+│   │   └── pdf/           # PDF processing APIs
+│   └── layout.tsx         # Root layout
+├── components/             # React components
+│   ├── ui/                # shadcn/ui components
+│   ├── layout/            # Header and Footer
+│   └── pdf/               # PDF tool components
+├── constants/              # Constants and navigation
+│   └── pdf/               # PDF navigation config
+├── services/               # Business logic
+│   └── pdf/               # PDF processing services
+└── lib/                   # Utility functions
+```
 
-## Learn More
+## 🔧 Available Scripts
 
-To learn more about Next.js, take a look at the following resources:
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run type-check` - Run TypeScript type checking
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🌟 Key Features
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Server-Side Processing
+All heavy file processing operations are handled on the server to ensure optimal performance and security.
 
-## Deploy on Vercel
+### Responsive Design
+Fully responsive design that works perfectly on desktop, tablet, and mobile devices.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Modern UI
+Beautiful, accessible interface built with shadcn/ui components and Tailwind CSS.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Type Safety
+Full TypeScript support for better development experience and fewer bugs.
+
+### SEO Optimized
+Comprehensive SEO optimization with proper meta tags, Open Graph, and Twitter Cards.
+
+## 🎨 Design System
+
+The project uses a consistent design system with:
+- CSS custom properties for theming
+- Dark/light mode support
+- Consistent spacing and typography
+- Accessible color contrast
+- Responsive breakpoints
+
+## 🚀 Deployment
+
+### Vercel (Recommended)
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Deploy automatically
+
+### Other Platforms
+The app can be deployed to any platform that supports Next.js:
+- Netlify
+- AWS Amplify
+- Railway
+- DigitalOcean App Platform
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [Next.js](https://nextjs.org/) - The React framework
+- [shadcn/ui](https://ui.shadcn.com/) - Beautiful UI components
+- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+- [Lucide](https://lucide.dev/) - Beautiful icons
+
+## 📞 Support
+
+- 📧 Email: support@fileforge.dev
+- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/fileforge/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/yourusername/fileforge/discussions)
+
+## 🗺️ Roadmap
+
+- [ ] Image processing tools
+- [ ] Audio processing tools
+- [ ] Video processing tools
+- [ ] JSON processing tools
+- [ ] Batch processing capabilities
+- [ ] API rate limiting
+- [ ] User authentication
+- [ ] File history and management
+
+---
+
+Made with ❤️ by the FileForge team
