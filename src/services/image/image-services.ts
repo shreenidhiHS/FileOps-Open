@@ -306,7 +306,7 @@ export class ImageServices {
       const originalWidth = metadata.width || 0;
       const originalHeight = metadata.height || 0;
       
-      let resizeOptions: any = { width, height };
+      let resizeOptions: { width: number; height: number } = { width, height };
       
       if (maintainAspectRatio) {
         // Calculate aspect ratio and adjust dimensions
@@ -526,7 +526,6 @@ export class ImageServices {
       // For now, we'll use a simple approach with Sharp
       // In production, you'd integrate with an AI service like remove.bg API
       const sharpInstance = sharp(file.data);
-      const metadata = await sharpInstance.metadata();
       
       // Simple background removal simulation
       // This is a placeholder - real AI background removal would require external API
@@ -735,7 +734,7 @@ export class ImageServices {
    */
   static async getColorPalette(file: ImageFile, colors: number = 8): Promise<string[]> {
     try {
-      const { data, info } = await sharp(file.data)
+      const { data } = await sharp(file.data)
         .resize(150, 150, { fit: 'inside' })
         .raw()
         .toBuffer({ resolveWithObject: true });
