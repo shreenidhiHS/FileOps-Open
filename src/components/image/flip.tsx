@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Upload, Download, Image as ImageIcon, AlertCircle, Loader2, FlipHorizontal, FlipVertical } from "lucide-react";
 import { toast } from "sonner";
+import { useFlip } from "./hooks/useFlip";
 
 interface FlipResult {
   success: boolean;
@@ -19,8 +20,17 @@ interface FlipResult {
 export default function FlipImage() {
   const [file, setFile] = useState<File | null>(null);
   const [direction, setDirection] = useState<'horizontal' | 'vertical'>('horizontal');
-  const [isFlipping, setIsFlipping] = useState(false);
   const [flipResult, setFlipResult] = useState<FlipResult | null>(null);
+  
+  const { 
+    isFlipping, 
+    previewDataUrl, 
+    flipImage, 
+    updatePreview, 
+    downloadFlippedImage, 
+    formatFileSize,
+    setPreviewDataUrl 
+  } = useFlip();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -35,6 +45,9 @@ export default function FlipImage() {
       }
       setFile(selectedFile);
       setFlipResult(null);
+      setPreviewDataUrl(null);
+      // Generate initial preview
+      updatePreview(selectedFile, direction);
     }
   };
 
@@ -52,31 +65,31 @@ export default function FlipImage() {
       }
       setFile(droppedFile);
       setFlipResult(null);
+      setPreviewDataUrl(null);
+      // Generate initial preview
+      updatePreview(droppedFile, direction);
     }
-  }, []);
+  }, [direction, updatePreview]);
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
   }, []);
 
-  const flipImage = async () => {
+  const handleDirectionChange = useCallback((newDirection: 'horizontal' | 'vertical') => {
+    setDirection(newDirection);
+    if (file) {
+      updatePreview(file, newDirection);
+    }
+  }, [file, updatePreview]);
+
+  const handleFlipImage = async () => {
     if (!file) {
       toast.error("Please select an image file");
       return;
     }
 
-    setIsFlipping(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('direction', direction);
-
-      const response = await fetch('/api/image/flip', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result: FlipResult = await response.json();
+      const result = await flipImage(file, direction);
 
       if (result.success && result.dataUrl) {
         setFlipResult(result);
@@ -87,30 +100,14 @@ export default function FlipImage() {
     } catch (error) {
       console.error('Flip error:', error);
       toast.error("Failed to flip image file");
-    } finally {
-      setIsFlipping(false);
     }
   };
 
-  const downloadFlippedImage = () => {
-    if (!flipResult?.dataUrl) return;
-
-    const link = document.createElement('a');
-    link.href = flipResult.dataUrl;
-    link.download = flipResult.fileName || 'flipped.jpg';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Flipped image downloaded!");
+  const handleDownloadFlippedImage = () => {
+    if (!flipResult?.dataUrl || !flipResult?.fileName) return;
+    downloadFlippedImage(flipResult.dataUrl, flipResult.fileName);
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
 
   const flipOptions = [
     { 
@@ -146,7 +143,7 @@ export default function FlipImage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* File Upload & Settings Section */}
           <Card>
             <CardHeader>
@@ -222,7 +219,7 @@ export default function FlipImage() {
                         <Button
                           key={option.value}
                           variant={direction === option.value ? "default" : "outline"}
-                          onClick={() => setDirection(option.value)}
+                          onClick={() => handleDirectionChange(option.value)}
                           className="justify-start h-auto p-4"
                         >
                           <div className="flex items-center gap-3">
@@ -248,7 +245,7 @@ export default function FlipImage() {
 
               {/* Flip Button */}
               <Button
-                onClick={flipImage}
+                onClick={handleFlipImage}
                 disabled={!file || isFlipping}
                 className="w-full"
                 size="lg"
@@ -269,6 +266,37 @@ export default function FlipImage() {
                   </>
                 )}
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* Live Preview Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="w-5 h-5" />
+                Live Preview
+              </CardTitle>
+              <CardDescription>
+                See how your image will look after flipping
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {previewDataUrl ? (
+                <div className="border rounded-lg overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+                  <img
+                    src={previewDataUrl}
+                    alt="Flip preview"
+                    className="w-full h-auto max-h-80 object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <ImageIcon className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--muted-foreground)' }} />
+                  <p style={{ color: 'var(--muted-foreground)' }}>
+                    Upload an image to see live preview
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -311,7 +339,7 @@ export default function FlipImage() {
                   {/* Action Buttons */}
                   <div className="flex gap-2">
                     <Button
-                      onClick={downloadFlippedImage}
+                      onClick={handleDownloadFlippedImage}
                       className="flex-1"
                     >
                       <Download className="w-4 h-4 mr-2" />
