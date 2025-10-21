@@ -5,8 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Slider } from "@/components/ui/slider";
 import { Upload, Download, Image as ImageIcon, AlertCircle, Loader2, RotateCw } from "lucide-react";
 import { toast } from "sonner";
+import { useRotate } from "./hooks/useRotate";
 
 interface RotateResult {
   success: boolean;
@@ -19,8 +21,17 @@ interface RotateResult {
 export default function RotateImage() {
   const [file, setFile] = useState<File | null>(null);
   const [degrees, setDegrees] = useState(90);
-  const [isRotating, setIsRotating] = useState(false);
   const [rotateResult, setRotateResult] = useState<RotateResult | null>(null);
+  
+  const { 
+    isRotating, 
+    previewDataUrl, 
+    rotateImage, 
+    updatePreview, 
+    downloadRotatedImage, 
+    formatFileSize,
+    setPreviewDataUrl 
+  } = useRotate();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -35,6 +46,9 @@ export default function RotateImage() {
       }
       setFile(selectedFile);
       setRotateResult(null);
+      setPreviewDataUrl(null);
+      // Generate initial preview
+      updatePreview(selectedFile, degrees);
     }
   };
 
@@ -52,31 +66,31 @@ export default function RotateImage() {
       }
       setFile(droppedFile);
       setRotateResult(null);
+      setPreviewDataUrl(null);
+      // Generate initial preview
+      updatePreview(droppedFile, degrees);
     }
-  }, []);
+  }, [degrees, updatePreview]);
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
   }, []);
 
-  const rotateImage = async () => {
+  const handleDegreesChange = useCallback((newDegrees: number) => {
+    setDegrees(newDegrees);
+    if (file) {
+      updatePreview(file, newDegrees);
+    }
+  }, [file, updatePreview]);
+
+  const handleRotateImage = async () => {
     if (!file) {
       toast.error("Please select an image file");
       return;
     }
 
-    setIsRotating(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('degrees', degrees.toString());
-
-      const response = await fetch('/api/image/rotate', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result: RotateResult = await response.json();
+      const result = await rotateImage(file, degrees);
 
       if (result.success && result.dataUrl) {
         setRotateResult(result);
@@ -87,36 +101,14 @@ export default function RotateImage() {
     } catch (error) {
       console.error('Rotation error:', error);
       toast.error("Failed to rotate image file");
-    } finally {
-      setIsRotating(false);
     }
   };
 
-  const downloadRotatedImage = () => {
-    if (!rotateResult?.dataUrl) return;
-
-    const link = document.createElement('a');
-    link.href = rotateResult.dataUrl;
-    link.download = rotateResult.fileName || 'rotated.jpg';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Rotated image downloaded!");
+  const handleDownloadRotatedImage = () => {
+    if (!rotateResult?.dataUrl || !rotateResult?.fileName) return;
+    downloadRotatedImage(rotateResult.dataUrl, rotateResult.fileName);
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const rotationOptions = [
-    { value: 90, label: '90° Clockwise' },
-    { value: 180, label: '180° (Upside Down)' },
-    { value: 270, label: '270° Clockwise (90° Counter-clockwise)' }
-  ];
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -137,7 +129,7 @@ export default function RotateImage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* File Upload & Settings Section */}
           <Card>
             <CardHeader>
@@ -199,23 +191,41 @@ export default function RotateImage() {
                 </div>
               )}
 
-              {/* Rotation Options */}
+              {/* Rotation Slider */}
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
-                    Rotation Angle:
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+                      Rotation Angle:
+                    </span>
+                    <Badge variant="outline" className="text-sm">
+                      {degrees}°
+                    </Badge>
+                  </div>
                   
-                  <div className="grid grid-cols-1 gap-2">
-                    {rotationOptions.map((option) => (
+                  <div className="px-2">
+                    <Slider
+                      value={[degrees]}
+                      onValueChange={(value) => handleDegreesChange(value[0])}
+                      min={0}
+                      max={360}
+                      step={90}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  {/* Quick rotation buttons */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {[90, 180, 270].map((angle) => (
                       <Button
-                        key={option.value}
-                        variant={degrees === option.value ? "default" : "outline"}
-                        onClick={() => setDegrees(option.value)}
-                        className="justify-start"
+                        key={angle}
+                        variant={degrees === angle ? "default" : "outline"}
+                        onClick={() => handleDegreesChange(angle)}
+                        className="text-xs"
+                        size="sm"
                       >
-                        <RotateCw className="w-4 h-4 mr-2" />
-                        {option.label}
+                        <RotateCw className="w-3 h-3 mr-1" />
+                        {angle}°
                       </Button>
                     ))}
                   </div>
@@ -224,14 +234,14 @@ export default function RotateImage() {
                 {/* Current Selection */}
                 <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--muted)' }}>
                   <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-                    <strong>Selected:</strong> {rotationOptions.find(opt => opt.value === degrees)?.label}
+                    <strong>Selected:</strong> {degrees}° {degrees === 0 ? '(Original)' : degrees === 90 ? 'Clockwise' : degrees === 180 ? '(Upside Down)' : degrees === 270 ? 'Counter-clockwise' : ''}
                   </div>
                 </div>
               </div>
 
               {/* Rotate Button */}
               <Button
-                onClick={rotateImage}
+                onClick={handleRotateImage}
                 disabled={!file || isRotating}
                 className="w-full"
                 size="lg"
@@ -248,6 +258,37 @@ export default function RotateImage() {
                   </>
                 )}
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* Live Preview Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="w-5 h-5" />
+                Live Preview
+              </CardTitle>
+              <CardDescription>
+                See how your image will look after rotation
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {previewDataUrl ? (
+                <div className="border rounded-lg overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+                  <img
+                    src={previewDataUrl}
+                    alt="Rotation preview"
+                    className="w-full h-auto max-h-80 object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <ImageIcon className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--muted-foreground)' }} />
+                  <p style={{ color: 'var(--muted-foreground)' }}>
+                    Upload an image to see live preview
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -290,7 +331,7 @@ export default function RotateImage() {
                   {/* Action Buttons */}
                   <div className="flex gap-2">
                     <Button
-                      onClick={downloadRotatedImage}
+                      onClick={handleDownloadRotatedImage}
                       className="flex-1"
                     >
                       <Download className="w-4 h-4 mr-2" />
