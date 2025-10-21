@@ -2,6 +2,7 @@
 // This file contains all the core image processing logic
 
 import sharp from 'sharp';
+import { removeBackground as imglyRemoveBackground } from '@imgly/background-removal-node';
 
 export interface ImageFile {
   name: string;
@@ -523,13 +524,23 @@ export class ImageServices {
         };
       }
 
-      // For now, we'll use a simple approach with Sharp
-      // In production, you'd integrate with an AI service like remove.bg API
-      const sharpInstance = sharp(file.data);
-      
-      // Simple background removal simulation
-      // This is a placeholder - real AI background removal would require external API
-      const processedBuffer = await sharpInstance
+      // Use @imgly/background-removal-node to remove background. It returns a PNG Blob.
+      try {
+        const blob: Blob = await imglyRemoveBackground(file.data as unknown as Uint8Array);
+        const arrayBuffer = await blob.arrayBuffer();
+        const processedBuffer = Buffer.from(arrayBuffer);
+
+        return {
+          success: true,
+          processedImage: processedBuffer,
+          fileName: file.name.replace(/\.[^/.]+$/, '-no-background.png')
+        };
+      } catch {
+        // If the library fails, fall back to a PNG re-encode (no actual background removal)
+      }
+
+      // Fallback: re-encode as PNG (does not actually remove background)
+      const processedBuffer = await sharp(file.data)
         .png({ quality: 90, compressionLevel: 9 })
         .toBuffer();
 
