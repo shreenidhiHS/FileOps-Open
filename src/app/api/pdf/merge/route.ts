@@ -24,15 +24,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Convert files to PDFFile objects
-    const pdfFiles = await Promise.all(
-      files.map(async (file) => ({
+    // Convert files to PDFFile objects and validate them
+    const pdfFiles = [];
+    for (const file of files) {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const validation = await PDFServices.validatePDFBuffer(buffer);
+      
+      if (!validation.valid) {
+        return NextResponse.json(
+          { error: `File ${file.name} is corrupted or invalid: ${validation.error}` },
+          { status: 400 }
+        );
+      }
+      
+      pdfFiles.push({
         name: file.name,
         size: file.size,
-        data: Buffer.from(await file.arrayBuffer()),
+        data: buffer,
         type: file.type
-      }))
-    );
+      });
+    }
 
     // Merge PDFs
     const result = await PDFServices.mergePDFs(pdfFiles);

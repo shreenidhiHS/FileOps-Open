@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { Upload, Download, FileText, AlertCircle, Loader2, X, Plus, Eye } from "lucide-react";
+import { Upload, Download, FileText, AlertCircle, Loader2, X, Plus, Eye, ChevronUp, ChevronDown, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 
 interface PDFFile {
@@ -28,6 +28,7 @@ export default function MergePDF() {
   const [isMerging, setIsMerging] = useState(false);
   const [mergeResult, setMergeResult] = useState<MergeResult | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files || []);
@@ -51,7 +52,7 @@ export default function MergePDF() {
     });
   };
 
-  const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+  const handleFileDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const droppedFiles = Array.from(event.dataTransfer.files);
     
@@ -74,7 +75,7 @@ export default function MergePDF() {
     });
   }, []);
 
-  const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+  const handleUploadDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
   }, []);
 
@@ -86,6 +87,47 @@ export default function MergePDF() {
     setFiles([]);
     setMergeResult(null);
     setShowPreview(false);
+  };
+
+  const moveFile = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    
+    const newFiles = [...files];
+    const [movedFile] = newFiles.splice(fromIndex, 1);
+    newFiles.splice(toIndex, 0, movedFile);
+    setFiles(newFiles);
+  };
+
+  const moveFileUp = (index: number) => {
+    if (index > 0) {
+      moveFile(index, index - 1);
+    }
+  };
+
+  const moveFileDown = (index: number) => {
+    if (index < files.length - 1) {
+      moveFile(index, index + 1);
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleFileReorder = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    
+    if (draggedIndex !== null && draggedIndex !== dropIndex) {
+      moveFile(draggedIndex, dropIndex);
+    }
+    
+    setDraggedIndex(null);
   };
 
   const mergePDFs = async () => {
@@ -170,7 +212,7 @@ export default function MergePDF() {
                 Upload PDF Files
               </CardTitle>
               <CardDescription>
-                Select or drag and drop multiple PDF files to merge
+                Select or drag and drop multiple PDF files to merge. You can reorder files by dragging or using the arrow buttons.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -181,8 +223,8 @@ export default function MergePDF() {
                   borderColor: 'var(--border)',
                   backgroundColor: 'var(--muted)'
                 }}
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
+                onDrop={handleFileDrop}
+                onDragOver={handleUploadDragOver}
                 onClick={() => document.getElementById('file-upload')?.click()}
               >
                 <FileText className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--muted-foreground)' }} />
@@ -222,28 +264,55 @@ export default function MergePDF() {
                       {files.map(({ file, id }, index) => (
                         <div
                           key={id}
-                          className="flex items-center justify-between p-2 rounded hover:bg-opacity-10"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, index)}
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleFileReorder(e, index)}
+                          className={`flex items-center justify-between p-2 rounded hover:bg-opacity-10 transition-all duration-200 cursor-move ${
+                            draggedIndex === index ? 'opacity-50 scale-95' : ''
+                          }`}
                           style={{ backgroundColor: 'var(--muted)' }}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-1">
+                            <GripVertical className="w-4 h-4 text-gray-400" />
                             <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
                               {index + 1}.
                             </span>
-                            <span className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
+                            <span className="text-sm flex-1 truncate" style={{ color: 'var(--muted-foreground)' }}>
                               {file.name}
                             </span>
                             <Badge variant="outline" className="text-xs">
                               {formatFileSize(file.size)}
                             </Badge>
                           </div>
-                          <Button
-                            onClick={() => removeFile(id)}
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              onClick={() => moveFileUp(index)}
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              disabled={index === 0}
+                            >
+                              <ChevronUp className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              onClick={() => moveFileDown(index)}
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              disabled={index === files.length - 1}
+                            >
+                              <ChevronDown className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              onClick={() => removeFile(id)}
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -375,7 +444,7 @@ export default function MergePDF() {
                 </div>
                 <h3 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>Upload PDFs</h3>
                 <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-                  Select or drag and drop multiple PDF files (min 2 files)
+                  Select or drag and drop multiple PDF files (min 2 files). Drag files to reorder them.
                 </p>
               </div>
               <div className="text-center">
