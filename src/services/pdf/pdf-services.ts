@@ -1,6 +1,8 @@
 // PDF Services - Business logic for PDF operations
 // This file contains all the core PDF processing logic
 
+import { PDFDocument } from 'pdf-lib';
+
 export interface PDFFile {
   name: string;
   size: number;
@@ -59,15 +61,48 @@ export class PDFServices {
         }
       }
 
-      // For now, we'll use a simple approach
-      // In production, you'd use a library like PDF-lib or similar
-      const mergedData = Buffer.concat(files.map(file => file.data));
+      // Create a new PDF document
+      const mergedPdf = await PDFDocument.create();
+
+      // Process each PDF file
+      for (const file of files) {
+        try {
+          // First validate the PDF buffer
+          const validation = await this.validatePDFBuffer(file.data);
+          if (!validation.valid) {
+            return {
+              success: false,
+              error: `File ${file.name} is corrupted or invalid: ${validation.error}`
+            };
+          }
+
+          // Load the PDF document from buffer
+          const pdfDoc = await PDFDocument.load(file.data);
+          
+          // Copy all pages from the current PDF to the merged PDF
+          const pageIndices = pdfDoc.getPageIndices();
+          const copiedPages = await mergedPdf.copyPages(pdfDoc, pageIndices);
+          
+          // Add each copied page to the merged PDF
+          copiedPages.forEach((page) => mergedPdf.addPage(page));
+        } catch (fileError) {
+          console.error(`Error processing file ${file.name}:`, fileError);
+          return {
+            success: false,
+            error: `Failed to process file ${file.name}. Please ensure it's a valid PDF.`
+          };
+        }
+      }
+
+      // Generate the merged PDF as bytes
+      const mergedPdfBytes = await mergedPdf.save();
+      const mergedBuffer = Buffer.from(mergedPdfBytes);
       
       return {
         success: true,
-        mergedPdf: mergedData,
+        mergedPdf: mergedBuffer,
         fileName: `merged-${Date.now()}.pdf`,
-        fileSize: mergedData.length
+        fileSize: mergedBuffer.length
       };
     } catch (error) {
       console.error('PDF merge error:', error);
@@ -97,13 +132,55 @@ export class PDFServices {
         };
       }
 
-      // For now, we'll create placeholder split files
-      // In production, you'd use a library like PDF-lib
-      const splitPdfs = pageRanges.map((range, index) => ({
-        data: file.data, // This would be the actual split data
-        fileName: `${file.name.replace('.pdf', '')}-part-${index + 1}.pdf`,
-        pageRange: range
-      }));
+      // First validate the PDF buffer
+      const validation = await this.validatePDFBuffer(file.data);
+      if (!validation.valid) {
+        return {
+          success: false,
+          error: `File is corrupted or invalid: ${validation.error}`
+        };
+      }
+
+      // Load the source PDF
+      const sourcePdf = await PDFDocument.load(file.data);
+      const totalPages = sourcePdf.getPageCount();
+
+      const splitPdfs = [];
+
+      for (let i = 0; i < pageRanges.length; i++) {
+        const range = pageRanges[i];
+        const pages = this.parsePageRanges(range, totalPages);
+
+        if (pages.length === 0) {
+          continue; // Skip invalid ranges
+        }
+
+        // Create a new PDF for this range
+        const newPdf = await PDFDocument.create();
+        
+        // Copy the specified pages
+        const copiedPages = await newPdf.copyPages(sourcePdf, pages.map(p => p - 1)); // Convert to 0-based index
+        
+        // Add each copied page to the new PDF
+        copiedPages.forEach((page) => newPdf.addPage(page));
+
+        // Generate the PDF bytes
+        const pdfBytes = await newPdf.save();
+        const pdfBuffer = Buffer.from(pdfBytes);
+
+        splitPdfs.push({
+          data: pdfBuffer,
+          fileName: `${file.name.replace('.pdf', '')}-part-${i + 1}.pdf`,
+          pageRange: range
+        });
+      }
+
+      if (splitPdfs.length === 0) {
+        return {
+          success: false,
+          error: 'No valid page ranges provided'
+        };
+      }
 
       return {
         success: true,
@@ -130,22 +207,39 @@ export class PDFServices {
         };
       }
 
-      // For now, we'll simulate compression
-      // In production, you'd use a library like PDF-lib with compression
       const originalSize = file.data.length;
-      const compressedSize = Math.floor(originalSize * quality);
-      const compressionRatio = ((originalSize - compressedSize) / originalSize) * 100;
 
-      // Simulate compressed data (in reality, this would be actual compression)
-      const compressedData = file.data.slice(0, compressedSize);
+      // First validate the PDF buffer
+      const validation = await this.validatePDFBuffer(file.data);
+      if (!validation.valid) {
+        return {
+          success: false,
+          error: `File is corrupted or invalid: ${validation.error}`
+        };
+      }
+
+      // Load the PDF document
+      const pdfDoc = await PDFDocument.load(file.data);
+
+      // Save with compression options
+      // pdf-lib automatically applies compression when saving
+      const compressedBytes = await pdfDoc.save({
+        useObjectStreams: true, // Enable object streams for better compression
+        addDefaultPage: false,  // Don't add default page
+        objectsPerTick: 50,     // Process objects in batches for memory efficiency
+      });
+
+      const compressedBuffer = Buffer.from(compressedBytes);
+      const compressedSize = compressedBuffer.length;
+      const compressionRatio = ((originalSize - compressedSize) / originalSize) * 100;
 
       return {
         success: true,
-        compressedPdf: compressedData,
+        compressedPdf: compressedBuffer,
         fileName: file.name.replace('.pdf', '-compressed.pdf'),
         originalSize,
         compressedSize,
-        compressionRatio
+        compressionRatio: Math.max(0, compressionRatio) // Ensure non-negative ratio
       };
     } catch (error) {
       console.error('PDF compression error:', error);
@@ -175,6 +269,59 @@ export class PDFServices {
     }
 
     return { valid: true };
+  }
+
+  /**
+   * Validate PDF buffer and check if it's a valid PDF
+   */
+  static async validatePDFBuffer(buffer: Buffer): Promise<{ valid: boolean; error?: string }> {
+    try {
+      // Check if buffer is empty
+      if (buffer.length === 0) {
+        return {
+          valid: false,
+          error: 'Empty PDF file'
+        };
+      }
+
+      // Check if it starts with PDF header
+      const header = buffer.toString('ascii', 0, 4);
+      if (header !== '%PDF') {
+        return {
+          valid: false,
+          error: 'Not a valid PDF file (missing PDF header)'
+        };
+      }
+
+      // Try to load the PDF to check if it's valid
+      await PDFDocument.load(buffer);
+      return { valid: true };
+    } catch (error: any) {
+      console.error('PDF validation error:', error);
+      
+      // Provide more specific error messages
+      if (error.message?.includes('Invalid object ref')) {
+        return {
+          valid: false,
+          error: 'PDF file is corrupted (invalid object references)'
+        };
+      } else if (error.message?.includes('Failed to parse PDF document')) {
+        return {
+          valid: false,
+          error: 'PDF file is corrupted (parsing failed)'
+        };
+      } else if (error.message?.includes('Invalid PDF')) {
+        return {
+          valid: false,
+          error: 'Invalid PDF file format'
+        };
+      }
+      
+      return {
+        valid: false,
+        error: 'Invalid or corrupted PDF file'
+      };
+    }
   }
 
   /**
